@@ -128,23 +128,23 @@ void messageArrived( MQTT::MessageData& md ) {
         oled.clear();
         oled.printf("exist");
 
-        // // Temperator
-        // uint8_t id;
-        // float temp, hum;
-        // hum_temp.read_id(&id);  
-        // hum_temp.get_temperature(&temp);    
-        // if  ( type == 0 ){
-        //     temp -= 5.0f;
-        // } else if  ( type == 2 ){
-        //     temp += 5.0f;
-        // }
-        // // sprintf( buf, "'uid':'%s','temp':'%2.2f'", buf, temp); 
-        // sprintf( buf, "%2.2f", temp);
-        // type++;
-        // if  ( type > 2 )
-        //     type = 0;       
-        // publish( mqttNetwork, client, topicTEMP );
-        // //send to db
+        // Temperator
+        uint8_t id;
+        float temp, hum;
+        hum_temp.read_id(&id);  
+        hum_temp.get_temperature(&temp);    
+        if  ( type == 0 ){
+            temp -= 5.0f;
+        } else if  ( type == 2 ){
+            temp += 5.0f;
+        }
+        // sprintf( buf, "'uid':'%s','temp':'%2.2f'", buf, temp); 
+        sprintf( buf, "%2.2f", temp);
+        type++;
+        if  ( type > 2 )
+            type = 0;       
+        publish( mqttNetwork, client, topicTEMP );
+        //send to db
         
 
     } else if ((char*) message.payload == "notexist") {
@@ -238,76 +238,62 @@ int main()
     rfidReader.PCD_Init();
 
     oled.clear();
-    // oled.printf("Attach NFC-Card\n");
+    oled.printf("Attach NFC-Card\n");
     while   ( 1 ){
-        // Magnet Sensor
-        float value;
-        bool magnet_away = true;
-        oled.printf("Attach Magnet\n");
-        while(magnet_away) {
-            // Temperator
-            uint8_t id;
-            float temp, hum;
-            hum_temp.read_id(&id);  
-            hum_temp.get_temperature(&temp);    
-            if  ( type == 0 ){
-                temp -= 5.0f;
-            } else if  ( type == 2 ){
-                temp += 5.0f;
-            }
-            oled.clear();
-            oled.printf( "Wait on Magnet\n Temp: %2.2f", temp);
+        // RFID Reader
+        if ( rfidReader.PICC_IsNewCardPresent())
+            if ( rfidReader.PICC_ReadCardSerial()) {
+                // Print Card UID (2-stellig mit Vornullen, Hexadecimal)
+                printf("Card UID: ");
+                for ( int i = 0; i < rfidReader.uid.size; i++ )
+                    printf("%02X:", rfidReader.uid.uidByte[i]);
+                printf("\n");
+                
+                // Print Card type
+                int piccType = rfidReader.PICC_GetType(rfidReader.uid.sak);
+                printf("PICC Type: %s \n", rfidReader.PICC_GetTypeName(piccType) );
+                
+                //save uid
+                sprintf( buf, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
+                publish( mqttNetwork, client, topicLOGIN );
+                // sprintf( uUID, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
+                // HttpRequest* post_req = new HttpRequest(wifi, HTTP_POST, API_BASE_URL);
+                //     // HttpResponse* get_res = get_req->send();
+                //     char body[] = "";
+                //     // sprintf( body, "%s", "{\"uid\":\"12345\"}\n",);
+                //     sprintf( body, "%s%s%s", "{\"uid\":\"", uUID, "\"}\n");
+                //     printf("BODY: %s\n", body);
+                //     post_req->set_header("Content-Type", "application/json");
+                //     HttpResponse* post_res = post_req->send(body, strlen(body));
+                    
+                //     // send request
+                //     oled.printf("sending request...\n");
 
-            if ( value > 0.6f ){
-                oled.printf("Magnet erkannt!");
-                oled.printf("Attach NFC-Card\n");
-                // RFID Reader
-                if ( rfidReader.PICC_IsNewCardPresent())
-                    if ( rfidReader.PICC_ReadCardSerial()) {
-                        // Print Card UID (2-stellig mit Vornullen, Hexadecimal)
-                        printf("Card UID: ");
-                        for ( int i = 0; i < rfidReader.uid.size; i++ )
-                            printf("%02X:", rfidReader.uid.uidByte[i]);
-                        printf("\n");
-                        
-                        // Print Card type
-                        int piccType = rfidReader.PICC_GetType(rfidReader.uid.sak);
-                        printf("PICC Type: %s \n", rfidReader.PICC_GetTypeName(piccType) );
-                        
-                        //save uid
-                        sprintf( buf, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
-                        publish( mqttNetwork, client, topicLOGIN );
-                        // sprintf( uUID, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
-                        // HttpRequest* post_req = new HttpRequest(wifi, HTTP_POST, API_BASE_URL);
-                        //     // HttpResponse* get_res = get_req->send();
-                        //     char body[] = "";
-                        //     // sprintf( body, "%s", "{\"uid\":\"12345\"}\n",);
-                        //     sprintf( body, "%s%s%s", "{\"uid\":\"", uUID, "\"}\n");
-                        //     printf("BODY: %s\n", body);
-                        //     post_req->set_header("Content-Type", "application/json");
-                        //     HttpResponse* post_res = post_req->send(body, strlen(body));
-                            
-                        //     // send request
-                        //     oled.printf("sending request...\n");
-
-                        //     //success response
-                        //     if (post_res){
-                        //         oled.printf("Login sended\n");
-                        //     }
-                        //     // Error
-                        //     else{
-                        //         printf("HttpRequest failed (error code %d)\n", post_req->get_error());
-                        //         oled.printf("HttpRequest failed (error code %d)\n", post_req->get_error());
-                        //         return 1;
-                        //     }
-                        //     delete post_req;
-                        oled.clear();
-                        oled.printf("Login sended\n");
-                    }
-                    magnet_away = false;
+                //     //success response
+                //     if (post_res){
+                //         oled.printf("Login sended\n");
+                //     }
+                //     // Error
+                //     else{
+                //         printf("HttpRequest failed (error code %d)\n", post_req->get_error());
+                //         oled.printf("HttpRequest failed (error code %d)\n", post_req->get_error());
+                //         return 1;
+                //     }
+                //     delete post_req;
+                oled.clear();
+                // Temperator
+                uint8_t id;
+                float temp, hum;
+                hum_temp.read_id(&id);  
+                hum_temp.get_temperature(&temp);    
+                if  ( type == 0 ){
+                    temp -= 5.0f;
+                } else if  ( type == 2 ){
+                    temp += 5.0f;
                 }
-            thread_sleep_for( 1000 );
-        }  
+                oled.printf( "Temp: %2.2f \n", temp);
+                oled.printf("Login sended\n");
+            }         
 
 #ifdef TARGET_K64F
         // Encoder
