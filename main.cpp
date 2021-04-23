@@ -39,19 +39,13 @@ AnalogIn hallSensor( MBED_CONF_IOTKIT_HALL_SENSOR );
 DigitalIn button( MBED_CONF_IOTKIT_BUTTON1 );
 
 // Topic's publish
-// char* topicTEMP = (char*) "iotkit/sensor";
-char* topicTEMP = (char*) "8x3ebv3f4w3EUchR/answer";
-// char* topicTEMP = (char*) "8x3ebv3f4w3EUchR/sensor";
+char* topicTEMP = (char*) "8x3ebv3f4w3EUchR/sensor";
 char* topicLOGIN = (char*) "8x3ebv3f4w3EUchR/login";
+char* topicREGISTER = (char*) "8x3ebv3f4w3EUchR/register";
 char* topicTEST = (char*) "8x3ebv3f4w3EUchR/test";
-char* topicANSWER = (char*) "8x3ebv3f4w3EUchR/answer";
-// char* topicALERT = (char*) "iotkit/alert";
-// char* topicBUTTON = (char*) "iotkit/button";
-// char* topicRFID = (char*) "iotkit/rfid";
-// char* topicENCODER = (char*) "iotkit/encoder";
-
 // Topic's subscribe
 char* topicAll = (char*) "8x3ebv3f4w3EUchR/#";
+char* topicANSWER = (char*) "8x3ebv3f4w3EUchR/answer";
 
 // MQTT Brocker
 char* hostname = (char*) BROKER_BASE_URL;
@@ -75,12 +69,6 @@ PwmOut speaker( MBED_CONF_IOTKIT_BUZZER );
 // Motor m1( MBED_CONF_IOTKIT_MOTOR2_PWM, MBED_CONF_IOTKIT_MOTOR2_FWD, MBED_CONF_IOTKIT_MOTOR2_REV ); // PWM, Vorwaerts, Rueckwarts
 // NFC/RFID Reader (SPI)
 MFRC522    rfidReader( MBED_CONF_IOTKIT_RFID_MOSI, MBED_CONF_IOTKIT_RFID_MISO, MBED_CONF_IOTKIT_RFID_SCLK, MBED_CONF_IOTKIT_RFID_SS, MBED_CONF_IOTKIT_RFID_RST ); 
-// Servo2 (Pin mit PWM, K64F = D11, andere D9)
-// #ifdef TARGET_K64F
-// Servo servo2 ( MBED_CONF_IOTKIT_SERVO3 );
-// #else
-// Servo servo2 ( MBED_CONF_IOTKIT_SERVO2 );
-// #endif
 
 /** Hilfsfunktion zum Publizieren auf MQTT Broker */
 void publish( MQTTNetwork &mqttNetwork, MQTT::Client<MQTTNetwork, Countdown> &client, char* topic ){
@@ -94,38 +82,95 @@ void publish( MQTTNetwork &mqttNetwork, MQTT::Client<MQTTNetwork, Countdown> &cl
     message.dup = false;
     message.payload = (void*) buf;
     message.payloadlen = strlen(buf)+1;
-    client.publish( topic, message);  
+    client.publish( topic, message);
 }
 
 /** Daten empfangen von MQTT Broker */
 void messageArrived( MQTT::MessageData& md ) {
-    oled.clear();
-    oled.printf("BABALALA\n");
+// Connect to the network with the default networking interface
+    // if you use WiFi: see mbed_app.json for the credentials
+    WiFiInterface *wifi = WiFiInterface::get_default_instance();
+    if ( !wifi ) 
+    {
+        printf("ERROR: No WiFiInterface found.\n");
+        oled.printf( "ERROR: No WiFiInterface found.\r\n" );
+    }
+    printf("\nConnecting to %s...\n", WIFI_SSID);
+    int ret = wifi->connect( WIFI_SSID, WIFI_PASSWORD, NSAPI_SECURITY_WPA_WPA2 );
+    if ( ret != 0 ) 
+    {
+        printf("\nConnection error: %d\n", ret);
+        oled.printf( "Connection error: %d\r\n" );
+    }    
 
-    // float value;
-    // MQTT::Message &message = md.message;
-    // oled.clear();
+    // TCP/IP und MQTT initialisieren (muss in main erfolgen)
+    MQTTNetwork mqttNetwork( wifi );
+    MQTT::Client<MQTTNetwork, Countdown> client(mqttNetwork);
+
+    printf("Connecting to %s:%d\r\n", hostname, port);
+    int rc = mqttNetwork.connect(hostname, port);
+    if (rc != 0)
+        printf("rc from TCP connect is %d\r\n", rc);
+
+
+    oled.clear();
+
+    float value;
+    MQTT::Message &message = md.message;
+    oled.clear();
     // oled.printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\n", message.qos, message.retained, message.dup, message.id);
     // oled.printf("Topic %.*s, ", md.topicName.lenstring.len, (char*) md.topicName.lenstring.data );
-    // oled.printf("Payload %.*s\n", message.payloadlen, (char*) message.payload);
+    oled.printf("Payload %.*s\n", message.payloadlen, (char*) message.payload);
     
-    thread_sleep_for( 10000 );
-    
-    // // Magnet Sensor
-    // bool magnet_away = true;
-    // while(magnet_away) {
-    //     // oled.clear();
-    //     // float value = hallSensor.read();
-    //     // oled.cursor( 1, 0 );
-    //     // oled.printf( "value %1.4f\r\n", value );
-    //     // printf( "Hall Sensor %f\r\n", value );
-    //     if ( value > 0.6f ){
-    //         oled.printf("Magnet erkannt!");
-    //         magnet_away = false;
-    //     }
-    //     //Loop wartet hier eine Sekunde lang
-    //     thread_sleep_for( 1000 );
-    // }            
+    // thread_sleep_for( 30000 );
+
+    if((char*) message.payload == "exist"){
+        oled.clear();
+        oled.printf("exist");
+
+        // // Temperator
+        // uint8_t id;
+        // float temp, hum;
+        // hum_temp.read_id(&id);  
+        // hum_temp.get_temperature(&temp);    
+        // if  ( type == 0 ){
+        //     temp -= 5.0f;
+        // } else if  ( type == 2 ){
+        //     temp += 5.0f;
+        // }
+        // // sprintf( buf, "'uid':'%s','temp':'%2.2f'", buf, temp); 
+        // sprintf( buf, "%2.2f", temp);
+        // type++;
+        // if  ( type > 2 )
+        //     type = 0;       
+        // publish( mqttNetwork, client, topicTEMP );
+        // //send to db
+        
+
+    } else if ((char*) message.payload == "notexist") {
+        oled.clear();
+        oled.printf("not exist");
+        oled.clear();
+        // Magnet Sensor
+        oled.printf("Attach Magnet\n");
+        bool magnet_away = true;
+        while(magnet_away) {
+            // oled.clear();
+            float value = hallSensor.read();
+            // oled.cursor( 1, 0 );
+            // oled.printf( "value %1.4f\r\n", value );
+            // printf( "Hall Sensor %f\r\n", value );
+            if ( value > 0.6f ){
+                oled.clear();
+                oled.printf("Magnet erkannt!");
+                publish( mqttNetwork, client, topicREGISTER );
+
+                magnet_away = false;
+            }
+            //Loop wartet hier eine Sekunde lang
+            thread_sleep_for( 1000 );
+        }
+    }         
 }
 
 /** Hauptprogramm */
@@ -141,6 +186,7 @@ int main()
     oled.printf( "MQTTPublish\r\n" );
     oled.printf( "host: %s:%s\r\n", hostname, port );
     
+    oled.clear();
     printf("\nConnecting to %s...\n", WIFI_SSID);
     oled.printf( "SSID: %s\r\n", WIFI_SSID );
     oled.clear();
@@ -182,106 +228,86 @@ int main()
         printf("rc from MQTT connect is %d\r\n", rc);           
 
     // MQTT Subscribe!
-    client.subscribe( topicAll, MQTT::QOS0, messageArrived );
+    client.subscribe( topicANSWER, MQTT::QOS0, messageArrived );
     printf("MQTT subscribe %s\n", topicAll );
     
     /* Init all sensors with default params */
     hum_temp.init(NULL);
     hum_temp.enable(); 
     // RFID Reader initialisieren
-    rfidReader.PCD_Init();      
+    rfidReader.PCD_Init();
 
     oled.clear();
-    oled.printf("Attach NFC-Card\n");
+    // oled.printf("Attach NFC-Card\n");
     while   ( 1 ){
-        // RFID Reader
-        if ( rfidReader.PICC_IsNewCardPresent())
-            if ( rfidReader.PICC_ReadCardSerial()) {
-                // Print Card UID (2-stellig mit Vornullen, Hexadecimal)
-                printf("Card UID: ");
-                for ( int i = 0; i < rfidReader.uid.size; i++ )
-                    printf("%02X:", rfidReader.uid.uidByte[i]);
-                printf("\n");
-                
-                // Print Card type
-                int piccType = rfidReader.PICC_GetType(rfidReader.uid.sak);
-                printf("PICC Type: %s \n", rfidReader.PICC_GetTypeName(piccType) );
-                
-                //save uid
-                sprintf( uUID, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
-                
-                // hum_temp.read_id(&id);
-                // hum_temp.get_temperature(&temp);
-                // if  ( type == 0 ){
-                //     temp -= 5.0f;
-                // } else if  ( type == 2 ){
-                //     temp += 5.0f;
-                // } else{
-                //     // m1.speed( 0.75f );
-                // }
-                // sprintf( buf, "%2.2f", temp); 
-                // type++;
-                // if  ( type > 2 )
-                //     type = 0;
-                // publish( mqttNetwork, client, topicAll );
-                // client.subscribe( topicAll, MQTT::QOS0, messageArrived );
+        // Magnet Sensor
+        float value;
+        bool magnet_away = true;
+        oled.printf("Attach Magnet\n");
+        while(magnet_away) {
+            // Temperator
+            uint8_t id;
+            float temp, hum;
+            hum_temp.read_id(&id);  
+            hum_temp.get_temperature(&temp);    
+            if  ( type == 0 ){
+                temp -= 5.0f;
+            } else if  ( type == 2 ){
+                temp += 5.0f;
+            }
+            oled.clear();
+            oled.printf( "Wait on Magnet\n Temp: %2.2f", temp);
 
-                //check uid in db
-                HttpRequest* post_req = new HttpRequest(wifi, HTTP_POST, "http://localhost:5000/ajax/login");
-                char body[] = "";
-                sprintf( body, "%s%s%s", "{\"uid\":\"", uUID, "\"}\n");
-                printf("BODY: %s\n", body);
-                post_req->set_header("Content-Type", "application/json");
-                HttpResponse* post_res = post_req->send(body, strlen(body));
-                
-                // send request
-                oled.printf("sending request...\n");
+            if ( value > 0.6f ){
+                oled.printf("Magnet erkannt!");
+                oled.printf("Attach NFC-Card\n");
+                // RFID Reader
+                if ( rfidReader.PICC_IsNewCardPresent())
+                    if ( rfidReader.PICC_ReadCardSerial()) {
+                        // Print Card UID (2-stellig mit Vornullen, Hexadecimal)
+                        printf("Card UID: ");
+                        for ( int i = 0; i < rfidReader.uid.size; i++ )
+                            printf("%02X:", rfidReader.uid.uidByte[i]);
+                        printf("\n");
+                        
+                        // Print Card type
+                        int piccType = rfidReader.PICC_GetType(rfidReader.uid.sak);
+                        printf("PICC Type: %s \n", rfidReader.PICC_GetTypeName(piccType) );
+                        
+                        //save uid
+                        sprintf( buf, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
+                        publish( mqttNetwork, client, topicLOGIN );
+                        // sprintf( uUID, "%02X:%02X:%02X:%02X", rfidReader.uid.uidByte[0], rfidReader.uid.uidByte[1], rfidReader.uid.uidByte[2], rfidReader.uid.uidByte[3] );
+                        // HttpRequest* post_req = new HttpRequest(wifi, HTTP_POST, API_BASE_URL);
+                        //     // HttpResponse* get_res = get_req->send();
+                        //     char body[] = "";
+                        //     // sprintf( body, "%s", "{\"uid\":\"12345\"}\n",);
+                        //     sprintf( body, "%s%s%s", "{\"uid\":\"", uUID, "\"}\n");
+                        //     printf("BODY: %s\n", body);
+                        //     post_req->set_header("Content-Type", "application/json");
+                        //     HttpResponse* post_res = post_req->send(body, strlen(body));
+                            
+                        //     // send request
+                        //     oled.printf("sending request...\n");
 
-                //success response
-                if (post_res){
-                    oled.clear();
-                    printf( "request: %s\n", (char*) post_res->get_body() );
-                    oled.printf( "request: %s\n", (char*) post_res->get_body() );
-                    printf("SUCCESS REQUEST");
-                    oled.printf("SUCCESS REQUEST\n");
-                    thread_sleep_for( 2000 );
-                    oled.clear();
-                    client.subscribe( topicANSWER, MQTT::QOS0, messageArrived );
-                    //parse response
-                    //@todo: check if login success(send temp) or not(wait magnet) 
-                    // MbedJSONValue parser;
-                    // parse( parser, post_res->get_body_as_string().c_str() );
-                    // std::string response;
-                    // response = parser["results"].get<std::string>();
-
-                    // Temperator
-                    hum_temp.read_id(&id);
-                    hum_temp.get_temperature(&temp);
-                    // hum_temp.get_humidity(&hum);    
-                    if  ( type == 0 ){
-                        temp -= 5.0f;
-                        // m1.speed( 0.0f );
-                    } else if  ( type == 2 ){
-                        temp += 5.0f;
-                        // m1.speed( 1.0f );
-                    } else{
-                        // m1.speed( 0.75f );
+                        //     //success response
+                        //     if (post_res){
+                        //         oled.printf("Login sended\n");
+                        //     }
+                        //     // Error
+                        //     else{
+                        //         printf("HttpRequest failed (error code %d)\n", post_req->get_error());
+                        //         oled.printf("HttpRequest failed (error code %d)\n", post_req->get_error());
+                        //         return 1;
+                        //     }
+                        //     delete post_req;
+                        oled.clear();
+                        oled.printf("Login sended\n");
                     }
-                    // sprintf( buf, "0x%X,%2.2f,%2.1f,%s", id, temp, hum, cls[type] ); 
-                    sprintf( buf, "%2.2f", temp); 
-                    type++;
-                    if  ( type > 2 )
-                        type = 0;       
-                    publish( mqttNetwork, client, topicLOGIN );
+                    magnet_away = false;
                 }
-                // Error
-                else{
-                    printf("HttpRequest failed (error code %d)\n", post_req->get_error());
-                    oled.printf("HttpRequest failed (error code %d)\n", post_req->get_error());
-                    return 1;
-                }
-                delete post_req;
-            }         
+            thread_sleep_for( 1000 );
+        }  
 
 #ifdef TARGET_K64F
         // Encoder
